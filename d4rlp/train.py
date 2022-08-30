@@ -8,7 +8,7 @@ import numpy as np
 from tianshou.data import Collector, ReplayBuffer, VectorReplayBuffer
 from tianshou.policy import SACPolicy
 from tianshou.trainer import offpolicy_trainer
-from tianshou.utils import TensorboardLogger
+from tianshou.utils import BaseLogger, LazyLogger, TensorboardLogger
 from tianshou.utils.net.common import Net
 from tianshou.utils.net.continuous import ActorProb, Critic
 import torch
@@ -175,6 +175,11 @@ def train(actor_lr: float,
         if epoch_ == epoch_medium - 1:
             torch.save(policy.state_dict(), save_path / 'medium.pth')
 
+    if logger.root is None:
+        tianshou_logger: BaseLogger = LazyLogger()
+    else:
+        tianshou_logger = TensorboardLogger(logger.writer)
+
     # trainer
     result = offpolicy_trainer(policy,
                                train_collector,
@@ -185,7 +190,7 @@ def train(actor_lr: float,
                                test_num,
                                batch_size,
                                save_checkpoint_fn=save_checkpoint_fn,
-                               logger=TensorboardLogger(logger.writer),
+                               logger=tianshou_logger,
                                update_per_step=update_per_step,
                                test_in_train=False)
     pprint.pprint(result)

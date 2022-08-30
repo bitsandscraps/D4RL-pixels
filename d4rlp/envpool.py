@@ -43,7 +43,7 @@ def spec2box(observation_spec) -> spaces.Box:
     return spaces.Box(low=low, high=high, dtype=low.dtype)
 
 
-class EnvPoolWrapper(gym.Env[np.ndarray, np.ndarray]):
+class EnvPoolWrapper(gym.Env):
     def __init__(self, env):
         self.env = env
         self.action_space: spaces.Box = array2box(env.action_spec())

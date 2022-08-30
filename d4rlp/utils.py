@@ -48,7 +48,7 @@ class ArgumentParser(argparse.ArgumentParser):
     def parse_args(self, args=None, namespace=None):
         arguments = super().parse_args(args, namespace)
         if arguments.config:
-            with Path(arguments.config).open() as file:
+            with Path(arguments.config).open(encoding='utf-8') as file:
                 defaults = tomlkit.load(file)
             self.set_defaults(**defaults)
         arguments = super().parse_args(args, namespace)
@@ -68,7 +68,9 @@ class ArgumentParser(argparse.ArgumentParser):
                 root = arguments.path
             else:
                 root = ROOT
+            assert root is not None
             root = root / str(now.date()) / str(now.time())
+            root.mkdir(parents=True, exist_ok=True)
         else:
             root = None
         if not torch.cuda.is_available():
@@ -77,14 +79,15 @@ class ArgumentParser(argparse.ArgumentParser):
         if root is not None:
             print('Logging to', root)
         setattr(arguments, MAIN, __main__.__spec__.name)
+        dict_args = vars(arguments)
+        dict_args.pop('config', None)
         logger.save_args(arguments)
         arguments.logger = logger
         if arguments.cuda == -1:
             arguments.device = torch.device('cpu')
         else:
             arguments.device = torch.device(f'cuda:{arguments.cuda}')
-        dict_args = vars(arguments)
-        for key in ('config', 'cuda', 'log', MAIN, 'path', 'timestamp'):
+        for key in ('cuda', 'log', MAIN, 'path', 'timestamp'):
             dict_args.pop(key, None)
         return arguments
 
