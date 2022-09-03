@@ -2,7 +2,7 @@ import argparse
 from datetime import datetime
 from pathlib import Path
 import sys
-from typing import Final, Optional
+from typing import Any, Dict, Final, Optional
 import warnings
 
 import tomlkit
@@ -19,14 +19,9 @@ ROOT = Path(__file__).resolve().parents[1] / 'results'
 class ArgumentParser(argparse.ArgumentParser):
     def __init__(self,
                  *args,
-                 append: bool = False,
                  parent: bool = False,
                  **kwargs):
         super().__init__(*args, **kwargs)
-        if append and not parent:
-            warnings.warn('Setting parent to True because append is True.')
-            parent = True
-        self.append = append
         self.parent = parent
         self.add_defaults()
 
@@ -42,7 +37,7 @@ class ArgumentParser(argparse.ArgumentParser):
         group.add_argument('--cuda', type=int, default=0)
         group.add_argument('--cpu', action='store_const', dest='cuda', const=-1)
         self.add_argument('-q', '--no-log', action='store_false', dest='log')
-        if self.append:
+        if self.parent:
             self.add_argument('path')
 
     def parse_args(self, args=None, namespace=None):
@@ -52,10 +47,8 @@ class ArgumentParser(argparse.ArgumentParser):
                 defaults = tomlkit.load(file)
             self.set_defaults(**defaults)
         arguments = super().parse_args(args, namespace)
-        if self.append:
-            arguments.path = Path(arguments.path)
-        root: Optional[Path]
         if self.parent:
+            arguments.path = Path(arguments.path)
             if not (arguments.path / 'arguments.toml').is_file():
                 raise ValueError(f'Not a log directory: {arguments.path}')
             parent: Optional[Logger] = Logger(root=arguments.path, parent=None)
@@ -64,7 +57,7 @@ class ArgumentParser(argparse.ArgumentParser):
         if arguments.log:
             now = datetime.now()
             arguments.timestamp = now.isoformat()
-            if self.append:
+            if self.parent:
                 root = arguments.path
             else:
                 root = ROOT
@@ -170,3 +163,9 @@ class Logger:
         else:
             with (self.root / 'arguments.toml').open('w') as file:
                 tomlkit.dump(dict_args, file)
+
+    def load_args(self) -> Dict[str, Any]:
+        if self.root is None:
+            raise ValueError('Cannot load arguments from an empty logger')
+        with (self.root / 'arguments.toml').open(encoding='utf-8') as file:
+            return tomlkit.load(file)
