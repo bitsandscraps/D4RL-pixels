@@ -86,7 +86,7 @@ class DMCEnv(gym.Env[np.ndarray, np.ndarray]):
     def seed(self, seed: Optional[int] = None):
         self.env: Environment = suite.load(
             self.domain, self.task,
-            task_kwargs={'time_limit': float('inf'), 'random': seed},
+            task_kwargs={'random': seed},
             environment_kwargs={'flat_observation': True})
 
 
