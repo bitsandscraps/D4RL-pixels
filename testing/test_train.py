@@ -14,14 +14,16 @@ from d4rlp.train import ReplayWrapper
 
 @pytest.mark.parametrize('domain,task', ALL_TASKS)
 def test_check_wrapper(domain, task):
-    env = gym.make(env_name(domain, task))
+    env = gym.make(env_name(domain, task),
+                   render_mode='single_rgb_array')
     check_env(ReplayWrapper(env, 1000000))
 
 
 @pytest.mark.parametrize('samples', [1, 2, 5, 10])
 def test_check_replay(samples, tmp_path: Path):
     env = gym.make(env_name('walker', 'walk'),
-                   max_episode_steps=4)
+                   max_episode_steps=4,
+                   render_mode='single_rgb_array')
     env = ReplayWrapper(env, samples, tmp_path)
     action_space = env.action_space
     action_space.seed(0)

@@ -8,6 +8,7 @@ from dm_env import TimeStep
 from dm_env.specs import Array, BoundedArray
 import gym
 from gym import spaces
+from gym.utils.renderer import Renderer
 import numpy as np
 
 
@@ -35,7 +36,7 @@ def register(domain: str, task: str) -> None:
 
 
 class DMCEnv(gym.Env[np.ndarray, np.ndarray]):
-    metadata = {'render_modes': ['single_rgb_array']}
+    metadata = {'render_modes': ['rgb_array', 'single_rgb_array']}
 
     def __init__(self,
                  domain: str,
@@ -56,6 +57,7 @@ class DMCEnv(gym.Env[np.ndarray, np.ndarray]):
         self.width = width
         self.height = height
         self.render_mode = render_mode
+        self.renderer = Renderer(render_mode, self._render)
         timestep = self.env._n_sub_steps * self.env.physics.timestep()
         timestep *= frame_skip
         self.metadata['render_fps'] = 1 / timestep
@@ -66,6 +68,7 @@ class DMCEnv(gym.Env[np.ndarray, np.ndarray]):
         for _ in range(self.frame_skip):
             timestep = self.env.step(action)
             reward += timestep.reward
+        self.renderer.render_step()
         assert timestep is not None
         return timestep.observation['observations'], reward, False, False, {}
 
@@ -82,7 +85,14 @@ class DMCEnv(gym.Env[np.ndarray, np.ndarray]):
         else:
             return observation
 
-    def render(self):
+    def render(self, mode='single_rgb_array'):
+        if self.render_mode is not None:
+            return self.renderer.get_renders()
+        else:
+            return self._render(mode)
+
+    def _render(self, mode='single_rgb_array'):
+        assert mode in self.metadata['render_modes']
         return self.env.physics.render(camera_id=self.camera_id,
                                        width=self.width,
                                        height=self.height)

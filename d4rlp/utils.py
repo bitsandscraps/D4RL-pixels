@@ -3,7 +3,6 @@ from datetime import datetime
 from pathlib import Path
 import sys
 from typing import Any, Dict, Final, Optional
-import warnings
 
 import tomlkit
 import torch

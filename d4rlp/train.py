@@ -29,6 +29,7 @@ class ReplayWrapper(gym.Wrapper):
                  samples: int,
                  save_dir: Optional[Path] = None):
         super().__init__(env, new_step_api=False)
+        assert env.render_mode == 'single_rgb_array'
         self.samples = samples
         self.trajectory_index = 0
         self.save_dir = save_dir
