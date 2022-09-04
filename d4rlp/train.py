@@ -239,9 +239,12 @@ def train(actor_lr: float,
 
     if save_dir is None:
         replay_save_dir: Optional[Path] = None
+        policy_save_dir: Optional[Path] = None
     else:
-        replay_save_dir = save_dir / 'Replay'
+        replay_save_dir = save_dir / 'replay'
+        policy_save_dir = save_dir / 'policy'
         replay_save_dir.mkdir(exist_ok=True)
+        policy_save_dir.mkdir(exist_ok=True)
 
     train_envs, test_envs = create_env(task=env_name_,
                                        test_num=test_num,
@@ -270,8 +273,9 @@ def train(actor_lr: float,
 
     def save_checkpoint_fn(epoch_: int, env_step: int, gradient_step: int):
         del env_step, gradient_step
-        if save_dir is not None:
-            torch.save(policy.state_dict(), save_dir / f'epoch{epoch_}.pth')
+        if policy_save_dir is not None:
+            torch.save(policy.state_dict(),
+                       policy_save_dir / f'epoch{epoch_}.pth')
 
     if logger.root is None:
         tianshou_logger: BaseLogger = LazyLogger()
@@ -292,8 +296,6 @@ def train(actor_lr: float,
                                update_per_step=update_per_step,
                                test_in_train=False)
     pprint.pprint(result)
-    if save_dir is not None:
-        torch.save(policy.state_dict(), save_dir / 'expert.pth')
 
     # Let's watch its performance!
     policy.eval()
