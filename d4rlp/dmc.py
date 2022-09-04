@@ -36,11 +36,11 @@ def register(domain: str, task: str) -> None:
 
 class DMCEnv(gym.Env[np.ndarray, np.ndarray]):
     metadata = {'render_modes': ['single_rgb_array']}
-    render_mode = 'single_rgb_array'
 
     def __init__(self,
                  domain: str,
                  task: str,
+                 render_mode: Optional[str] = None,
                  frame_skip: int = 1,
                  camera_id: int = 0,
                  width: int = 64,
@@ -55,6 +55,10 @@ class DMCEnv(gym.Env[np.ndarray, np.ndarray]):
         self.camera_id = camera_id
         self.width = width
         self.height = height
+        self.render_mode = render_mode
+        timestep = self.env._n_sub_steps * self.env.physics.timestep()
+        timestep *= frame_skip
+        self.metadata['render_fps'] = 1 / timestep
 
     def step(self, action):
         timestep: Optional[TimeStep] = None

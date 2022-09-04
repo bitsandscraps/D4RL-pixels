@@ -8,7 +8,7 @@ import gym
 import h5py
 import numpy as np
 from tianshou.data import Collector, ReplayBuffer
-from tianshou.env import BaseVectorEnv, DummyVectorEnv, ShmemVectorEnv
+from tianshou.env import DummyVectorEnv, ShmemVectorEnv
 from tianshou.policy import SACPolicy
 from tianshou.trainer import offpolicy_trainer
 from tianshou.utils import BaseLogger, LazyLogger, TensorboardLogger
@@ -35,6 +35,7 @@ class ReplayWrapper(gym.Wrapper):
         self.done = False
         self.buffer: Dict[str, List[Union[np.ndarray, float, bool]]]
         self.buffer = defaultdict(list)
+        self._metadata = {'render_modes': []}
 
     def step(self, action):
         state, reward, done, info = super().step(action)    # type: ignore
@@ -82,6 +83,7 @@ class ReplayWrapper(gym.Wrapper):
     def render_mode(self):
         return None
 
+
 def build_argument_parser():
     parser = ArgumentParser()
     parser.add_argument('--actor-lr', type=float, default=1e-3)
@@ -116,17 +118,17 @@ def build_policy(actor_lr: float,
                  auto_alpha: bool,
                  critic_lr: float,
                  device: torch.device,
+                 env: gym.Env,
                  gamma: float,
                  hidden_sizes: List[int],
                  n_step: int,
                  tau: float,
-                 train_envs: BaseVectorEnv,
                  ) -> SACPolicy:
-    state_shape = train_envs.observation_space.shape
+    state_shape = env.observation_space.shape
     assert state_shape is not None
-    action_shape = train_envs.action_space.shape
+    action_shape = env.action_space.shape
     assert action_shape is not None
-    max_action = train_envs.action_space.high[0]    # type: ignore
+    max_action = env.action_space.high[0]    # type: ignore
     print('Observations shape:', state_shape)
     print('Actions shape:', action_shape)
     # model
@@ -170,7 +172,7 @@ def build_policy(actor_lr: float,
                      gamma=gamma,
                      alpha=alpha_,
                      estimation_step=n_step,
-                     action_space=train_envs.action_space)
+                     action_space=env.action_space)
 
 
 def create_env(task: str,
@@ -182,17 +184,19 @@ def create_env(task: str,
                save_dir: Optional[Path]):
     env = gym.make(task,
                    frame_skip=frame_skip,
-                   max_episode_steps=max_episode_steps)
+                   max_episode_steps=max_episode_steps,
+                   render_mode='single_rgb_array')
     env_ = ReplayWrapper(env, samples=samples, save_dir=save_dir)
-    train_envs = DummyVectorEnv([lambda: env_])
+    train_env = DummyVectorEnv([lambda: env_])
     test_envs = ShmemVectorEnv(
         [lambda: gym.make(task,
                           frame_skip=frame_skip,
-                          max_episode_steps=max_episode_steps)
+                          max_episode_steps=max_episode_steps,
+                          render_mode=None)
          for _ in range(test_num)])
-    train_envs.seed(seed)
+    train_env.seed(seed)
     test_envs.seed(seed)
-    return train_envs, test_envs
+    return env_, train_env, test_envs
 
 
 def set_seed(seed: int):
@@ -246,28 +250,28 @@ def train(actor_lr: float,
         replay_save_dir.mkdir(exist_ok=True)
         policy_save_dir.mkdir(exist_ok=True)
 
-    train_envs, test_envs = create_env(task=env_name_,
-                                       test_num=test_num,
-                                       seed=seed,
-                                       frame_skip=frame_skip,
-                                       max_episode_steps=max_episode_steps,
-                                       samples=samples,
-                                       save_dir=replay_save_dir)
+    env, train_env, test_envs = create_env(task=env_name_,
+                                           test_num=test_num,
+                                           seed=seed,
+                                           frame_skip=frame_skip,
+                                           max_episode_steps=max_episode_steps,
+                                           samples=samples,
+                                           save_dir=replay_save_dir)
     policy = build_policy(actor_lr=actor_lr,
                           alpha=alpha,
                           alpha_lr=alpha_lr,
                           auto_alpha=auto_alpha,
                           critic_lr=critic_lr,
                           device=device,
+                          env=env,
                           gamma=gamma,
                           hidden_sizes=hidden_sizes,
                           n_step=n_step,
-                          tau=tau,
-                          train_envs=train_envs)
+                          tau=tau)
 
     # collector
     buffer = ReplayBuffer(buffer_size)
-    train_collector = Collector(policy, train_envs, buffer, exploration_noise=True)
+    train_collector = Collector(policy, train_env, buffer, exploration_noise=True)
     test_collector = Collector(policy, test_envs)
     train_collector.collect(n_step=start_timesteps, random=True)
 
