@@ -70,7 +70,8 @@ class DMCEnv(gym.Env[np.ndarray, np.ndarray]):
             reward += timestep.reward
         self.renderer.render_step()
         assert timestep is not None
-        return timestep.observation['observations'], reward, False, False, {}
+        observation = timestep.observation['observations']
+        return observation, reward, False, timestep.last(), {}
 
     def reset(self, *,
               seed: Optional[int] = None,
