@@ -6,6 +6,7 @@ from typing import Any, Dict, Final, Optional
 
 import tomlkit
 import torch
+from torch import nn
 from torch.utils.tensorboard.writer import SummaryWriter
 
 import __main__
@@ -145,6 +146,8 @@ class Logger:
         self.root = root
         self.parent = parent
         self._writer: Optional[SummaryWriter] = None
+        if root is not None:
+            (root / 'policy').mkdir(exist_ok=True, parents=True)
 
     @property
     def writer(self) -> SummaryWriter:
@@ -162,6 +165,11 @@ class Logger:
         else:
             with (self.root / 'arguments.toml').open('w') as file:
                 tomlkit.dump(dict_args, file)
+
+    def save_policy(self, policy: nn.Module, epoch: int) -> None:
+        if self.root is not None:
+            torch.save(policy.state_dict(),
+                       self.root / 'policy' / f'epoch{epoch}.pth')
 
     def load_args(self) -> Dict[str, Any]:
         if self.root is None:

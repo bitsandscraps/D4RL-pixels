@@ -87,25 +87,26 @@ class ReplayWrapper(gym.Wrapper):
 
 def build_argument_parser():
     parser = ArgumentParser()
-    parser.add_argument('--actor-lr', type=float, default=1e-3)
+    parser.add_argument('--actor-lr', type=float, default=3e-4)
     parser.add_argument('--alpha', type=float, default=0.2)
     parser.add_argument('--alpha-lr', type=float, default=3e-4)
-    parser.add_argument('--auto-alpha', action='store_true')
     parser.add_argument('--batch-size', type=int, default=256)
     parser.add_argument('--buffer-size', type=int, default=1000000)
-    parser.add_argument('--critic-lr', type=float, default=1e-3)
+    parser.add_argument('--critic-lr', type=float, default=3e-4)
     parser.add_argument('--domain', default='walker')
-    parser.add_argument('--epoch', type=int, default=200)
+    parser.add_argument('--epoch', type=int, default=3000)
+    parser.add_argument('--fix-alpha', action='store_false')
     parser.add_argument('--frame-skip', type=int, default=1)
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--hidden-sizes', type=int, nargs='*', default=[256, 256])
     parser.add_argument('--max-episode-steps', type=int, default=1000)
     parser.add_argument('--n-step', type=int, default=1)
     parser.add_argument('--samples', type=int, default=1000000)
+    parser.add_argument('--save-every', type=int, default=100)
     parser.add_argument('--seed', type=int, default=0)
-    parser.add_argument('--start-timesteps', type=int, default=10000)
-    parser.add_argument('--step-per-collect', type=int, default=1)
-    parser.add_argument('--step-per-epoch', type=int, default=5000)
+    parser.add_argument('--start-timesteps', type=int, default=1000)
+    parser.add_argument('--step-per-collect', type=int, default=1000)
+    parser.add_argument('--step-per-epoch', type=int, default=1)
     parser.add_argument('--task', default='walk')
     parser.add_argument('--tau', type=float, default=0.005)
     parser.add_argument('--test-num', type=int, default=10)
@@ -225,6 +226,7 @@ def train(actor_lr: float,
           max_episode_steps: int,
           n_step: int,
           samples: int,
+          save_every: int,
           seed: int,
           start_timesteps: int,
           step_per_collect: int,
@@ -244,12 +246,9 @@ def train(actor_lr: float,
 
     if save_dir is None:
         replay_save_dir: Optional[Path] = None
-        policy_save_dir: Optional[Path] = None
     else:
         replay_save_dir = save_dir / 'replay'
-        policy_save_dir = save_dir / 'policy'
         replay_save_dir.mkdir(exist_ok=True)
-        policy_save_dir.mkdir(exist_ok=True)
 
     env, train_env, test_envs = create_env(task=env_name_,
                                            test_num=test_num,
@@ -278,9 +277,8 @@ def train(actor_lr: float,
 
     def save_checkpoint_fn(epoch_: int, env_step: int, gradient_step: int):
         del env_step, gradient_step
-        if policy_save_dir is not None:
-            torch.save(policy.state_dict(),
-                       policy_save_dir / f'epoch{epoch_}.pth')
+        if epoch_ % save_every == save_every - 1:
+            logger.save_policy(policy, epoch_)
 
     if logger.root is None:
         tianshou_logger: BaseLogger = LazyLogger()
