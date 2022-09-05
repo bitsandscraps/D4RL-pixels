@@ -95,11 +95,10 @@ def build_argument_parser():
     parser.add_argument('--critic-lr', type=float, default=3e-4)
     parser.add_argument('--domain', default='walker')
     parser.add_argument('--epoch', type=int, default=3000)
-    parser.add_argument('--fix-alpha', action='store_false')
+    parser.add_argument('--fix-alpha', action='store_false', dest='auto_alpha')
     parser.add_argument('--frame-skip', type=int, default=1)
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--hidden-sizes', type=int, nargs='*', default=[256, 256])
-    parser.add_argument('--max-episode-steps', type=int, default=1000)
     parser.add_argument('--n-step', type=int, default=1)
     parser.add_argument('--samples', type=int, default=1000000)
     parser.add_argument('--save-every', type=int, default=100)
@@ -181,19 +180,16 @@ def create_env(task: str,
                test_num: int,
                seed: int,
                frame_skip: int,
-               max_episode_steps: int,
                samples: int,
                save_dir: Optional[Path]):
     env = gym.make(task,
                    frame_skip=frame_skip,
-                   max_episode_steps=max_episode_steps,
                    render_mode='single_rgb_array')
     env_ = ReplayWrapper(env, samples=samples, save_dir=save_dir)
     train_env = DummyVectorEnv([lambda: env_])
     test_envs = ShmemVectorEnv(
         [lambda: gym.make(task,
                           frame_skip=frame_skip,
-                          max_episode_steps=max_episode_steps,
                           render_mode=None)
          for _ in range(test_num)])
     train_env.seed(seed)
@@ -223,7 +219,6 @@ def train(actor_lr: float,
           gamma: float,
           hidden_sizes: List[int],
           logger: Logger,
-          max_episode_steps: int,
           n_step: int,
           samples: int,
           save_every: int,
@@ -254,7 +249,6 @@ def train(actor_lr: float,
                                            test_num=test_num,
                                            seed=seed,
                                            frame_skip=frame_skip,
-                                           max_episode_steps=max_episode_steps,
                                            samples=samples,
                                            save_dir=replay_save_dir)
     policy = build_policy(actor_lr=actor_lr,
